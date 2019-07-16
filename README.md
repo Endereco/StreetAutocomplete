@@ -58,3 +58,26 @@ new StreetAutocomplete({
 StreetAutocomplete relies on StatusIndicator to mark fields green on correct input.
 
 StreetAutocomplete also relies on Accounting to generate the tid and track transactions.
+
+## Methods
+
+### updateConfig(object newConfig)
+
+Updates inner config. Existing fields are overwritten, new fields are added, other field are kept.
+
+### checkIfFieldsAreSet()
+
+Checks if all relevant fields are set and marks the service as "dirty", if there was a change. Dirty state trigger reinitialisation.
+
+### getPredictions()
+
+Get a list of possible street names for the provided input. Returns a promise that is resolved once the answer from remote server is in.
+
+
+### renderDropdown()
+
+Renders the autocomplete list.
+
+### removeDropdown()
+
+Removes autocomplete list from DOM.

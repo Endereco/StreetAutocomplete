@@ -1,16 +1,12 @@
 /**
  * Endereco SDK.
  *
- * @author Ilja Weber <ilja.weber@mobilemjo.de>
+ * @author Ilja Weber <ilja@endereco.de>
  * @copyright 2019 mobilemojo – Apps & eCommerce UG (haftungsbeschränkt) & Co. KG
  * {@link https://endereco.de}
  */
 function StreetAutocomplete(config) {
-
     var $self  = this;
-    this.config = config;
-    this.isSet = false;
-    this.tid = 'not_set';
     this.requestBody = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -23,183 +19,151 @@ function StreetAutocomplete(config) {
             "language": "de"
         }
     }
-
+    this.defaultConfig = {
+        'useWatcher': true,
+        'tid': 'not_set'
+    };
+    this.fieldsAreSet = false;
+    this.dirty = false;
+    this.originalInput;
+    this.config = Object.assign(this.defaultConfig, config);
     this.connector = new XMLHttpRequest();
 
-    //// Functions
+    this.createEvent = function(eventName) {
+        var event;
+        if(typeof(Event) === 'function') {
+            event = new Event(eventName);
+        }else{
+            event = document.createEvent('Event');
+            event.initEvent(eventName, true, true);
+        }
+        return event;
+    }
 
-    // Observe the website in a loop.
-    setInterval( function() {
-        var isNowSet = false;
-        if(
-            (null !== document.querySelector(config.inputSelector))
-        ) {
-            isNowSet = true;
+    /**
+     * Helper function to update existing config, overwriting existing fields.
+     *
+     * @param newConfig
+     */
+    this.updateConfig = function(newConfig) {
+        $self.config = Object.assign($self.config, newConfig);
+    }
+
+    /**
+     * Checks if fields are set.
+     */
+    this.checkIfFieldsAreSet = function() {
+        var areFieldsSet = false;
+        if((null !== document.querySelector($self.config.inputSelector))) {
+            areFieldsSet = true;
         }
 
-        if (!$self.isSet && isNowSet) {
-            $self.init();
-        } else if($self.isSet && !isNowSet) {
-            $self.isSet = false;
+        if (!$self.fieldsAreSet && areFieldsSet) {
+            $self.dirty = true;
+            $self.fieldsAreSet = true;
+        } else if($self.fieldsAreSet && !areFieldsSet) {
+            $self.fieldsAreSet = false;
         }
-    }, 300);
+    }
 
-    this.init = function() {
-        console.log('Initiate StreetAutocomplete');
-        $self.inputElement = document.querySelector(config.inputSelector);
-        $self.dropdown = undefined;
-        $self.dropdownDraw = true;
-        $self.predictions = [];
+    /**
+     * Get predictions for the provided input.
+     */
+    this.getPredictions = function() {
         $self.activeElementIndex = -1;
-        $self.mouseDownHappened = false;
-
-        //// DOM modifications
-
-        // Set mark
-        $self.inputElement.setAttribute('data-service', 'streetAutocomplete');
-        $self.inputElement.setAttribute('data-status', 'instantiated');
-
-        // Generate TID
-        if (window.accounting) {
-            $self.tid = window.accounting.generateTID();
-        }
-
-        // Disable browser autocomplete
-        if ($self.isChrome()) {
-            $self.inputElement.setAttribute('autocomplete', 'autocomplete_' + Math.random().toString(36).substring(2) + Date.now());
-        } else {
-            $self.inputElement.setAttribute('autocomplete', 'off' );
-        }
-
-        //// Rendering
-
-        // Register events
-        $self.inputElement.addEventListener('input', function() {
-            $this = this;
-            $self.activeElementIndex = -1;
-            $self.dropdownDraw = true;
-
-            if (true) {
-                $self.requestBody.params.street = $this.value.trim();
-                if (undefined !== $self.config.country && '' !== $self.config.country) {
-                    $self.requestBody.params.country = $self.config.country;
-                }
-                if (undefined !== $self.config.secondaryInputSelectors.country && '' !== document.querySelector($self.config.secondaryInputSelectors.country).value.trim()) {
-                    $self.requestBody.params.country = document.querySelector($self.config.secondaryInputSelectors.country).getAttribute('data-value').trim();
-                }
-                if (undefined !== $self.config.secondaryInputSelectors.postCode && '' !== document.querySelector($self.config.secondaryInputSelectors.postCode).value.trim()) {
-                    $self.requestBody.params.postCode = document.querySelector($self.config.secondaryInputSelectors.postCode).value.trim();
-                }
-                if (undefined !== $self.config.secondaryInputSelectors.cityName && '' !== document.querySelector($self.config.secondaryInputSelectors.cityName).value.trim()) {
-                    $self.requestBody.params.cityName = document.querySelector($self.config.secondaryInputSelectors.cityName).value.trim();
-                }
-                if (undefined !== $self.config.language && '' !== $self.config.language) {
-                    $self.requestBody.params.language = $self.config.language;
-                }
-                if(undefined !== this.getAttribute('data-tid') && null !== this.getAttribute('data-tid')) {
-                    tid = this.getAttribute('data-tid');
-                } else {
-                    tid = 'not_set';
-                }
-                $self.connector.abort();
-                $self.inputElement.setAttribute('data-status', 'loading');
-                $self.connector.open('POST', $self.config.endpoint, true);
-                $self.connector.setRequestHeader("Content-type", "application/json");
-                $self.connector.setRequestHeader("X-Auth-Key", $self.config.apiKey);
-                $self.connector.setRequestHeader("X-Transaction-Id", $self.tid);
-                $self.connector.setRequestHeader("X-Transaction-Referer", window.location.href);
-
-                $self.connector.send(JSON.stringify($self.requestBody));
-            }
-        });
-
-        $self.inputElement.addEventListener('blur', function() {
-            if ($self.mouseDownHappened) {
-                $self.mouseDownHappened = false;
-                this.focus();
-            }
-            setTimeout(function() {
-                if (undefined !== $self.dropdown) {
-                    $self.dropdown.remove();
-                }
-                $self.dropdown = undefined;
-                $self.dropdownDraw = false;
-            }, 100);
-        });
-
-        $self.inputElement.addEventListener('change', function() {
-
-            setTimeout(function() {
-                if ('chosen' !== $self.inputElement.getAttribute('data-status')) {
-                    hasInput = false;
-                    $self.predictions.forEach( function(prediction) {
-                        if (prediction.street === $self.inputElement.value.trim()){
-                            hasInput = true;
-                        }
-                    });
-
-                    if (0 < $self.predictions.length) {
-                        if (!hasInput) {
-                            event = new Event('endereco.check');
-                            $self.inputElement.dispatchEvent(event);
+        $self.originalInput = '';
+        return new Promise( function(resolve, reject) {
+            var countryCode = 'de';
+            var countryElement;
+            // On data receive
+            $self.connector.onreadystatechange = function() {
+                if(4 === $self.connector.readyState) {
+                    if ($self.connector.responseText && '' !== $self.connector.responseText) {
+                        $data = JSON.parse($self.connector.responseText);
+                        if ($data.result) {
+                            resolve($data);
                         } else {
-                            event = new Event('endereco.valid');
-                            $self.inputElement.dispatchEvent(event);
+                            reject($data);
                         }
                     } else {
-                        event = new Event('endereco.clean');
-                        $self.inputElement.dispatchEvent(event);
+                        reject($data);
                     }
                 }
-            }, 1000);
-        });
+            };
 
-        $self.inputElement.addEventListener('keydown', function(e) {
-            e = e || window.event;
-            if (40 == e.keyCode && $self.activeElementIndex < ($self.predictions.length-1)) {
-                e.preventDefault();
-                $self.activeElementIndex++;
-                $self.renderDropdown();
-                $self.renderDropdownElements();
-
-            } else if(38 == e.keyCode && $self.activeElementIndex > 0) {
-                e.preventDefault();
-                $self.activeElementIndex--;
-                $self.renderDropdown();
-                $self.renderDropdownElements();
-            } else if(13 == e.keyCode) {
-                if($self.activeElementIndex >= 0 && $self.activeElementIndex <= $self.predictions.length) {
-                    e.preventDefault();
-                    $self.inputElement.value = $self.predictions[$self.activeElementIndex].street;
-                    $self.activeElementIndex = -1
-                    $self.dropdown.style.display = 'none';
-                    event = new Event('endereco.valid');
-                    $self.inputElement.dispatchEvent(event);
-                    $self.inputElement.setAttribute('data-status', 'chosen');
-                }
+            // Set request values.
+            if ($self.inputElement) {
+                $self.requestBody.params.street = $self.inputElement.value.trim();
             }
+
+            // Set post code.
+            if (undefined !== $self.config.secondaryInputSelectors.postCode && '' !== document.querySelector($self.config.secondaryInputSelectors.postCode).value.trim()) {
+                $self.requestBody.params.postCode = document.querySelector($self.config.secondaryInputSelectors.postCode).value.trim();
+            }
+
+            // Set city name.
+            if (undefined !== $self.config.secondaryInputSelectors.cityName && '' !== document.querySelector($self.config.secondaryInputSelectors.cityName).value.trim()) {
+                $self.requestBody.params.cityName = document.querySelector($self.config.secondaryInputSelectors.cityName).value.trim();
+            }
+
+            // Set country.
+            countryElement = document.querySelector($self.config.secondaryInputSelectors.country);
+            if ((undefined !== countryElement) && (null !== countryElement)) {
+                countryCode = countryElement.options[countryElement.selectedIndex].getAttribute('data-code');
+                if ('' === countryCode) {
+                    countryCode = countryElement.options[countryElement.selectedIndex].value;
+                }
+                if ('' === countryCode) {
+                    countryCode = 'de';
+                }
+                $self.requestBody.params.country = countryCode;
+            }
+
+            // Set language
+            if (undefined !== $self.config.language && '' !== $self.config.language) {
+                $self.requestBody.params.language = $self.config.language;
+            }
+
+            $self.connector.open('POST', $self.config.endpoint, true);
+            $self.connector.setRequestHeader("Content-type", "application/json");
+            $self.connector.setRequestHeader("X-Auth-Key", $self.config.apiKey);
+            $self.connector.setRequestHeader("X-Transaction-Id", $self.config.tid);
+            $self.connector.setRequestHeader("X-Transaction-Referer", window.location.href);
+            $self.connector.send(JSON.stringify($self.requestBody));
         });
-
-        $self.isSet = true;
     }
 
-    // Check if the browser is chrome
-    this.isChrome = function() {
-        return /chrom(e|ium)/.test( navigator.userAgent.toLowerCase( ) );
-    }
-
-    // Create ul dropdown
+    /**
+     * Renders predictions in a dropdown.
+     */
     this.renderDropdown = function() {
-
-        if(undefined !== $self.dropdown && undefined !== $self.dropdown) {
-            $self.dropdown.remove();
+        var ul;
+        var li;
+        var street;
+        var input;
+        if ('' === $self.originalInput) {
+            input = $self.inputElement.value.trim();
+            $self.originalInput = input;
+        } else {
+            input = $self.originalInput;
         }
-        var ul = document.createElement('ul');
-        ul.style.display = 'none';
+        var counter = 0;
+        var regEx;
+        var replaceMask;
+        var event;
+        var selectedStreet;
+
+        $self.removeDropdown();
+
+        if (0 === $self.predictions.length) {
+            return;
+        }
+
+        ul = document.createElement('ul');
         ul.style.zIndex = '9001';
         ul.style.borderRadius = '4px';
-        ul.style.backgroundColor = '#fff',
-            ul.style.border = '1px solid #dedede';
+        ul.style.backgroundColor = '#fff';
+        ul.style.border = '1px solid #dedede';
         ul.style.listStyle = 'none';
         ul.style.padding = '4px 4px';
         ul.style.margin = 0;
@@ -209,18 +173,6 @@ function StreetAutocomplete(config) {
         ul.setAttribute('class', 'endereco-dropdown')
         $self.dropdown = ul;
         $self.inputElement.parentNode.insertBefore(ul, $self.inputElement.nextSibling);
-    }
-
-    // Create dropdown elements
-    this.renderDropdownElements = function() {
-        var li;
-        var input = $self.inputElement.value.trim();
-        var counter = 0;
-
-        // Remove all existing elements
-        while ($self.dropdown.hasChildNodes()) {
-            $self.dropdown.removeChild($self.dropdown.lastChild);
-        }
 
         // Iterate through list and create new elements
         $self.predictions.forEach( function(element) {
@@ -229,6 +181,7 @@ function StreetAutocomplete(config) {
             li.style.color = '#000';
             li.style.padding = '2px 4px';
             li.style.margin = '0';
+            li.setAttribute('data-index', counter);
             if (counter === $self.activeElementIndex) {
                 li.style.backgroundColor = 'rgba(0, 137, 167, 0.25)';
             } else {
@@ -242,53 +195,148 @@ function StreetAutocomplete(config) {
                 this.style.backgroundColor =  'transparent';
             });
 
-            var regEx = new RegExp('(' + input + ')', 'ig');
-            var replaceMask = '<mark style="background-color: transparent; padding: 0; margin: 0; font-weight: 700; color: ' +  $self.config.colors.secondaryColor + '">$1</mark>';
+            regEx = new RegExp('(' + input + ')', 'ig');
+            replaceMask = '<mark style="background-color: transparent; padding: 0; margin: 0; font-weight: 700; color: ' +  $self.config.colors.secondaryColor + '">$1</mark>';
             street = element.street.replace(regEx, replaceMask);
             li.innerHTML = street;
-            li.setAttribute('data-street', element.street);
+            li.setAttribute('data-street', element.cityName);
 
             // Register event
-            li.addEventListener('mousedown', function() {
-                $self.mouseDownHappened = true;
+            li.addEventListener('mouseover', function(mEvent) {
+                mEvent.preventDefault();
                 selectedStreet = this.getAttribute('data-street');
                 $self.inputElement.value = selectedStreet;
-                $self.inputElement.setAttribute('data-status', 'chosen');
-                event = new Event('endereco.valid');
+                $self.activeElementIndex = this.getAttribute('data-index') * 1;
+            });
+
+            li.addEventListener( 'mousedown', function(mEvent) {
+                mEvent.preventDefault();
+
+                event = $self.createEvent('endereco.valid');
                 $self.inputElement.dispatchEvent(event);
+
+                $self.removeDropdown();
             });
 
             $self.dropdown.appendChild(li);
 
             counter++;
         });
+    }
 
-        if ($self.predictions.length === 0) {
-            $self.dropdown.style.display = 'none';
+    /**
+     * Removes dropdown from DOM.
+     */
+    this.removeDropdown = function() {
+        if (null !== $self.dropdown && undefined !== $self.dropdown ) {
+            $self.dropdown.parentElement.removeChild($self.dropdown);
+            $self.dropdown = undefined;
+        }
+    }
+
+    /**
+     * Init postCodeAutocomplete.
+     */
+    this.init = function() {
+
+        try {
+            $self.inputElement = document.querySelector($self.config.inputSelector);
+            $self.dropdown = undefined;
+            $self.dropdownDraw = true;
+            $self.predictions = [];
+            $self.activeElementIndex = -1;
+        } catch(e) {
+            console.log('Could not initiate StreetAutocomplete because of error.', e);
+        }
+
+        // Generate TID if accounting service is set.
+        if (window.accounting && ('not_set' === $self.config.tid)) {
+            $self.config.tid = window.accounting.generateTID();
+        }
+
+        // Disable browser autocomplete
+        if ($self.isChrome()) {
+            $self.inputElement.setAttribute('autocomplete', 'autocomplete_' + Math.random().toString(36).substring(2) + Date.now());
         } else {
-            $self.dropdown.style.display = 'block';
+            $self.inputElement.setAttribute('autocomplete', 'off' );
         }
-    }
 
+        // Register events
+        $self.inputElement.addEventListener('input', function() {
+            var acCall = $self.getPredictions();
+            acCall.then( function($data) {
+                $self.predictions = $data.result.predictions;
+                $self.renderDropdown();
+            });
+        });
 
+        // Register blur event
+        $self.inputElement.addEventListener('blur', function() {
+            $self.removeDropdown();
+        });
 
-    // On data receive
-    this.connector.onreadystatechange = function() {
-        if(4 === $self.connector.readyState && $self.dropdownDraw) {
-            if ($self.connector.responseText && '' !== $self.connector.responseText) {
-                $data = JSON.parse($self.connector.responseText);
-                if (undefined !== $data.result) {
-                    $self.predictions = $data.result.predictions;
-                } else {
-                    $self.predictions = [];
+        // Register mouse navigation
+        $self.inputElement.addEventListener('keydown', function(mEvent) {
+            var event;
+            if ('ArrowUp' === mEvent.code) {
+                mEvent.preventDefault();
+                if (0 < $self.activeElementIndex) {
+                    $self.activeElementIndex--;
                 }
-            } else {
-                $self.predictions = [];
+
+                // Prefill selection to input
+                $self.inputElement.value = $self.predictions[$self.activeElementIndex].street;
+
+                $self.renderDropdown();
             }
-            $self.renderDropdown();
-            $self.renderDropdownElements();
-            $self.inputElement.setAttribute('data-status', 'list-rendered');
+
+            if ('ArrowDown' === mEvent.code) {
+                mEvent.preventDefault();
+                if ($self.activeElementIndex < ($self.predictions.length-1)) {
+                    $self.activeElementIndex++;
+                }
+
+                // Prefill selection to input
+                $self.inputElement.value = $self.predictions[$self.activeElementIndex].street;
+                $self.renderDropdown();
+            }
+
+            if ('Enter' === mEvent.code) {
+                mEvent.preventDefault();
+
+                // If only one prediction.
+                if (1 === $self.predictions.length) {
+                    // Prefill selection to input
+                    $self.inputElement.value = $self.predictions[0].street;
+                }
+
+                // Then.
+                event = $self.createEvent('endereco.valid');
+                $self.inputElement.dispatchEvent(event);
+
+                $self.removeDropdown();
+            }
+        });
+
+        $self.dirty = false;
+
+        console.log('StreetAutocomplete instantiated.');
+    }
+
+    // Check if the browser is chrome
+    this.isChrome = function() {
+        return /chrom(e|ium)/.test( navigator.userAgent.toLowerCase( ) );
+    }
+
+    // Service loop.
+    setInterval( function() {
+
+        if ($self.config.useWatcher) {
+            $self.checkIfFieldsAreSet();
         }
 
-    }
+        if ($self.dirty) {
+            $self.init();
+        }
+    }, 300);
 }
