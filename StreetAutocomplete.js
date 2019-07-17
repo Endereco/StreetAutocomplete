@@ -222,7 +222,30 @@ function StreetAutocomplete(config) {
 
             counter++;
         });
-    }
+    };
+
+    /**
+     * Validate fields.
+     */
+    this.validate = function() {
+        var input = $self.inputElement.value.trim();
+        var event;
+        var includes = false;
+
+        $self.predictions.forEach( function(prediction) {
+            if (input === prediction.street) {
+                includes = true;
+            }
+        });
+
+        if (includes) {
+            event = $self.createEvent('endereco.valid');
+            $self.inputElement.dispatchEvent(event);
+        } else {
+            event = $self.createEvent('endereco.check');
+            $self.inputElement.dispatchEvent(event);
+        }
+    };
 
     /**
      * Removes dropdown from DOM.
@@ -232,7 +255,7 @@ function StreetAutocomplete(config) {
             $self.dropdown.parentElement.removeChild($self.dropdown);
             $self.dropdown = undefined;
         }
-    }
+    };
 
     /**
      * Init postCodeAutocomplete.
@@ -267,12 +290,14 @@ function StreetAutocomplete(config) {
             acCall.then( function($data) {
                 $self.predictions = $data.result.predictions;
                 $self.renderDropdown();
+                $self.validate();
             });
         });
 
         // Register blur event
         $self.inputElement.addEventListener('blur', function() {
             $self.removeDropdown();
+            $self.validate();
         });
 
         // Register mouse navigation
