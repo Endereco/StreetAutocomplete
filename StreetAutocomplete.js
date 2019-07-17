@@ -286,10 +286,13 @@ function StreetAutocomplete(config) {
 
         // Register events
         $self.inputElement.addEventListener('input', function() {
+            var $this = this;
             var acCall = $self.getPredictions();
             acCall.then( function($data) {
                 $self.predictions = $data.result.predictions;
-                $self.renderDropdown();
+                if ($this === document.activeElement) {
+                    $self.renderDropdown();
+                }
                 $self.validate();
             });
         });
