@@ -199,7 +199,7 @@ function StreetAutocomplete(config) {
             replaceMask = '<mark style="background-color: transparent; padding: 0; margin: 0; font-weight: 700; color: ' +  $self.config.colors.secondaryColor + '">$1</mark>';
             street = element.street.replace(regEx, replaceMask);
             li.innerHTML = street;
-            li.setAttribute('data-street', element.cityName);
+            li.setAttribute('data-street', element.street);
 
             // Register event
             li.addEventListener('mouseover', function(mEvent) {
