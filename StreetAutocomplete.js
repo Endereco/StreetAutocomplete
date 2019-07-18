@@ -378,7 +378,7 @@ function StreetAutocomplete(config) {
 
         $self.dirty = false;
 
-        console.log('StreetAutocomplete instantiated.');
+        console.log('StreetAutocomplete initiated.');
     }
 
     // Check if the browser is chrome
