@@ -188,6 +188,10 @@ function StreetAutocomplete(config) {
         $self.dropdown = ul;
         $self.inputElement.parentNode.insertBefore(ul, $self.inputElement.nextSibling);
 
+        ul.addEventListener('mouseout', function() {
+            $self.inputElement.value = $self.originalInput;
+        });
+
         // Iterate through list and create new elements
         $self.predictions.forEach( function(element) {
             li = document.createElement('li');
@@ -227,6 +231,8 @@ function StreetAutocomplete(config) {
 
             li.addEventListener( 'mousedown', function(mEvent) {
                 mEvent.preventDefault();
+
+                $self.originalInput = $self.inputElement.value;
 
                 event = $self.createEvent('endereco.valid');
                 $self.inputElement.dispatchEvent(event);
@@ -333,12 +339,17 @@ function StreetAutocomplete(config) {
             var event;
             if ('ArrowUp' === mEvent.code || 'Up' === mEvent.key) {
                 mEvent.preventDefault();
-                if (0 < $self.activeElementIndex) {
-                    $self.activeElementIndex--;
+
+                if (0 === $self.activeElementIndex) {
+                    $self.activeElementIndex = -1;
+                    $self.inputElement.value = $self.originalInput;
                 }
 
-                // Prefill selection to input
-                $self.inputElement.value = $self.predictions[$self.activeElementIndex].street;
+                if (0 < $self.activeElementIndex) {
+                    $self.activeElementIndex--;
+                    // Prefill selection to input
+                    $self.inputElement.value = $self.predictions[$self.activeElementIndex].street;
+                }
 
                 $self.renderDropdown();
             }
@@ -366,6 +377,8 @@ function StreetAutocomplete(config) {
                 // Then.
                 event = $self.createEvent('endereco.valid');
                 $self.inputElement.dispatchEvent(event);
+
+                $self.originalInput = $self.inputElement.value;
 
                 $self.removeDropdown();
             }
