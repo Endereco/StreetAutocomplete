@@ -232,11 +232,10 @@ function StreetAutocomplete(config) {
             li.addEventListener( 'mousedown', function(mEvent) {
                 mEvent.preventDefault();
 
-                $self.originalInput = $self.inputElement.value;
-
                 event = $self.createEvent('endereco.valid');
                 $self.inputElement.dispatchEvent(event);
 
+                $self.saveOriginal();
                 $self.removeDropdown();
             });
 
@@ -262,6 +261,9 @@ function StreetAutocomplete(config) {
 
         if (includes) {
             event = $self.createEvent('endereco.valid');
+            $self.inputElement.dispatchEvent(event);
+        } else if('' === input) {
+            event = $self.createEvent('endereco.clean');
             $self.inputElement.dispatchEvent(event);
         } else {
             event = $self.createEvent('endereco.check');
@@ -291,6 +293,8 @@ function StreetAutocomplete(config) {
             $self.dropdownDraw = true;
             $self.predictions = [];
             $self.activeElementIndex = -1;
+
+            $self.saveOriginal();
         } catch(e) {
             console.log('Could not initiate StreetAutocomplete because of error.', e);
         }
@@ -311,26 +315,28 @@ function StreetAutocomplete(config) {
         $self.inputElement.addEventListener('input', function() {
             var $this = this;
             var acCall = $self.getPredictions();
+            $self.originalInput = this.value;
             acCall.then( function($data) {
                 $self.predictions = $data.result.predictions;
                 if ($this === document.activeElement) {
                     $self.renderDropdown();
                 }
-                $self.validate();
-            });
+            }, function($data){console.log('Rejected with data:', $data)});
         });
 
         $self.inputElement.addEventListener('focus', function() {
             var acCall = $self.getPredictions();
+            $self.saveOriginal();
             acCall.then( function($data) {
                 $self.predictions = $data.result.predictions;
                 $self.validate();
-            });
+            }, function($data){console.log('Rejected with data:', $data)});
         });
 
         // Register blur event
         $self.inputElement.addEventListener('blur', function() {
             $self.removeDropdown();
+            $self.restoreOriginal();
             $self.validate();
         });
 
@@ -378,8 +384,7 @@ function StreetAutocomplete(config) {
                 event = $self.createEvent('endereco.valid');
                 $self.inputElement.dispatchEvent(event);
 
-                $self.originalInput = $self.inputElement.value;
-
+                $self.saveOriginal();
                 $self.removeDropdown();
             }
 
@@ -392,6 +397,20 @@ function StreetAutocomplete(config) {
         $self.dirty = false;
 
         console.log('StreetAutocomplete initiated.');
+    }
+
+    /**
+     * Resotre original values.
+     */
+    this.restoreOriginal = function() {
+        $self.inputElement.value = $self.originalInput;
+    }
+
+    /**
+     * Save original state.
+     */
+    this.saveOriginal = function() {
+        $self.originalInput = $self.inputElement.value;
     }
 
     // Check if the browser is chrome
