@@ -354,7 +354,9 @@ function StreetAutocomplete(config) {
                 if (0 < $self.activeElementIndex) {
                     $self.activeElementIndex--;
                     // Prefill selection to input
-                    $self.inputElement.value = $self.predictions[$self.activeElementIndex].street;
+                    if (0 < $self.predictions.length) {
+                        $self.inputElement.value = $self.predictions[$self.activeElementIndex].street;
+                    }
                 }
 
                 $self.renderDropdown();
@@ -367,7 +369,10 @@ function StreetAutocomplete(config) {
                 }
 
                 // Prefill selection to input
-                $self.inputElement.value = $self.predictions[$self.activeElementIndex].street;
+                if (0 < $self.predictions.length) {
+                    $self.inputElement.value = $self.predictions[$self.activeElementIndex].street;
+                }
+
                 $self.renderDropdown();
             }
 
