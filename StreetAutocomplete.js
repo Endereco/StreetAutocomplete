@@ -204,7 +204,7 @@ function StreetAutocomplete(config) {
         ul.style.position = 'absolute';
         ul.style.top = 4 + $self.inputElement.offsetTop + $self.inputElement.offsetHeight + 'px';
         if ('rtl' === direction) {
-            ul.style.right = $self.inputElement.offsetParent.offsetWidth - parseFloat(getComputedStyle($self.inputElement.offsetParent).paddingRight) - $self.inputElement.offsetWidth + 'px';
+            ul.style.right = $self.inputElement.offsetParent.offsetWidth - $self.inputElement.offsetLeft - $self.inputElement.offsetWidth + 'px';
         } else {
             ul.style.left = $self.inputElement.offsetLeft + 'px';
         }
